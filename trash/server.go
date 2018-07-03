@@ -22,6 +22,7 @@ package main
 
 import (
 	"fmt"
+	// "strings"
 	"log"
 	"net/http"
 	"github.com/Shopify/sarama"
@@ -71,7 +72,20 @@ func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// rw.Header().Set("Content-Type", "text/event-stream")
+	q := req.URL.Query()
+	topics, ok := q["topics"]
+	if !ok {
+		rw.Header().Set("Server", "A Go Web Server")
+		rw.WriteHeader(400)
+		rw.Write([]byte("Bad request"))
+		return
+	}
+	for i, topic := range topics {
+		fmt.Println(i, topic)
+	}
+	// topics := strings.Split(value, ",")
+
+	rw.Header().Set("Content-Type", "text/event-stream")
 	rw.Header().Set("Cache-Control", "no-cache")
 	rw.Header().Set("Connection", "keep-alive")
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
