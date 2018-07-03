@@ -33,25 +33,25 @@ import (
 type Broker struct {
 
 	// Events are pushed to this channel by the main events-gathering routine
-	Notifier chan []byte
+	Notifier chan string
 
 	// New client connections
-	newClients chan chan []byte
+	newClients chan chan string
 
 	// Closed client connections
-	closingClients chan chan []byte
+	closingClients chan chan string
 
 	// Client connections registry
-	clients map[chan []byte]bool
+	clients map[chan string]bool
 }
 
 func NewServer() (broker *Broker) {
 	// Instantiate a broker
 	broker = &Broker{
-		Notifier:       make(chan []byte, 1),
-		newClients:     make(chan chan []byte),
-		closingClients: make(chan chan []byte),
-		clients:        make(map[chan []byte]bool),
+		Notifier:       make(chan string, 1),
+		newClients:     make(chan chan string),
+		closingClients: make(chan chan string),
+		clients:        make(map[chan string]bool),
 	}
 
 	// Set it running - listening and broadcasting events
@@ -77,7 +77,7 @@ func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
 
 	// Each connection registers its own message channel with the Broker's connections registry
-	messageChan := make(chan []byte)
+	messageChan := make(chan string)
 
 	// Signal the broker that we have a new connection
 	broker.newClients <- messageChan
@@ -93,7 +93,6 @@ func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	notify := rw.(http.CloseNotifier).CloseNotify()
 
 
-	fmt.Println("begin loop")
 	for {
 
 		// Write to the ResponseWriter
@@ -108,7 +107,6 @@ func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		// Flush the data immediatly instead of buffering it for later.
 		flusher.Flush()
 	}
-	fmt.Println("end loop")
 
 }
 
@@ -128,7 +126,6 @@ func (broker *Broker) listen() {
 			delete(broker.clients, s)
 			log.Printf("Removed client. %d registered clients", len(broker.clients))
 		case event := <-broker.Notifier:
-			fmt.Println("get notifier", string(event))
 
 			// We got a new event from the outside!
 			// Send event to all connected clients
@@ -160,17 +157,13 @@ func main() {
 
 	go func() {
 		for {
-			fmt.Println("Starting msg")
 			select {
 			case msg := <-msgCh:
-				eventString := fmt.Sprintln(msg)
-				fmt.Println("start send")
-				broker.Notifier <- []byte(eventString)
-				fmt.Println("end send")
+				eventString := string(msg.Value)
+				broker.Notifier <- eventString
 			case err := <-errCh:
 				fmt.Println(err)
 			case <-doneCh:
-				fmt.Println("done!")
 				break
 			}
 
